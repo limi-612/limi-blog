@@ -12,8 +12,8 @@ export default defineUserConfig({
   theme: recoTheme({
     logo: "/logo.png",
     author: "limi",
-    authorAvatar: "/limi-blog/head.png",
-    docsRepo: "https://github.com/vuepress-reco/vuepress-theme-reco-next",
+    authorAvatar: "/head.png",
+    // docsRepo: "https://github.com/vuepress-reco/vuepress-theme-reco-next",
     docsBranch: "main",
     docsDir: "example",
     lastUpdatedText: "",
