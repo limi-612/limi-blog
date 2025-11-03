@@ -10,30 +10,30 @@ export default defineUserConfig({
   bundler: viteBundler(),
   // bundler: webpackBundler(),
   theme: recoTheme({
-    logo: "/logo.png",
+    logo: "/更多猫宠.png",
     author: "limi",
-    authorAvatar: "/head.png",
+    authorAvatar: "/更多猫宠.png",
     // docsRepo: "https://github.com/vuepress-reco/vuepress-theme-reco-next",
-    docsBranch: "main",
-    docsDir: "example",
+    // docsBranch: "main",
+    // docsDir: "example",
     lastUpdatedText: "",
     // series 为原 sidebar
-    series: {
-      "/docs/theme-reco/": [
-        {
-          text: "module one",
-          children: ["home", "theme"],
-        },
-        {
-          text: "module two",
-          children: ["api", "plugin"],
-        },
-      ],
-    },
+    // series: {
+    //   "/docs/theme-reco/": [
+    //     {
+    //       text: "module one",
+    //       children: ["home", "theme"],
+    //     },
+    //     {
+    //       text: "module two",
+    //       children: ["api", "plugin"],
+    //     },
+    //   ],
+    // },
     navbar: [
       { text: "Home", link: "/" },
-      { text: "Categories", link: "/categories/reco/1.html" },
-      { text: "Tags", link: "/tags/tag1/1.html" },
+      { text: "Categories", link: "/categories/qianduan/1.html" },
+      { text: "Tags", link: "/tags/Vue3/1.html" },
     ],
     // bulletin: {
     //   body: [
