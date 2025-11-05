@@ -5,7 +5,7 @@ tags:
  - React
  - 面试题
 categories:
- - 面试题
+ - React
 ---
 
 ## 基础概念

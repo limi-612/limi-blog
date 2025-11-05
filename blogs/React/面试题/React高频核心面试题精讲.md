@@ -5,7 +5,7 @@ tags:
  - React
  - 核心面试题
 categories:
- - 面试题
+ - React
 ---
 
 ## React基础核心问题

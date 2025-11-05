@@ -6,7 +6,7 @@ tags:
  - 跨平台
  - 小程序
 categories:
- - 面试题
+ - Uniapp
 ---
 
 ## Uniapp基础概念

@@ -6,7 +6,7 @@ tags:
  - 状态管理
  - Redux
 categories:
- - 面试题
+ - React
 ---
 
 ## React状态管理核心问题

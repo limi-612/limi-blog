@@ -6,7 +6,7 @@ tags:
  - Web API
  - 语义化
 categories:
- - 面试题
+ - HTML
 ---
 
 ## HTML5新特性

@@ -6,7 +6,7 @@ tags:
  - 构建工具
  - ESM
 categories:
- - 面试题
+ - Vite
 ---
 
 ## Vite核心原理

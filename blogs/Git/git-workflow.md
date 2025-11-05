@@ -6,7 +6,7 @@ tags:
  - 版本控制
  - 工作流
 categories:
- - 面试题
+ - Git
 ---
 
 ## Git基础概念

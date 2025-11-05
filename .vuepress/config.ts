@@ -32,7 +32,7 @@ export default defineUserConfig({
     // },
     navbar: [
       { text: "Home", link: "/" },
-      { text: "Categories", link: "/categories/mianshiti/1.html" },
+      { text: "Categories", link: "/categories/Vite/1.html" },
       { text: "Tags", link: "/tags/Vue3/1.html" },
     ],
     // bulletin: {

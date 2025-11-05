@@ -6,7 +6,7 @@ tags:
  - HTTP请求
  - 拦截器
 categories:
- - 面试题
+ - Axios
 ---
 
 ## Axios基础使用

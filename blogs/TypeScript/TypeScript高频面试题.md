@@ -4,7 +4,7 @@ date: 2024/03/08
 tags:
  - TypeScript
 categories:
- - 面试题
+ - TypeScript
 ---
 
 ## 基础概念

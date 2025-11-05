@@ -5,7 +5,7 @@ tags:
  - JavaScript
  - 异步编程
 categories:
- - 文章
+ - JavaScript
 ---
 
 ## 异步编程的演进历程
