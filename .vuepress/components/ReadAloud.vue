@@ -100,7 +100,7 @@ export default {
       const clone = article.cloneNode(true)
       
       // 移除不需要朗读的元素
-      const elementsToRemove = clone.querySelectorAll('pre, code, .read-aloud, nav, .navbar, .sidebar')
+      const elementsToRemove = clone.querySelectorAll('pre, code, .read-aloud, nav, .navbar, .sidebar, .code-copy-btn')
       elementsToRemove.forEach(el => el.remove())
       
       // 返回处理后的纯文本内容
