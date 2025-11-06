@@ -9,6 +9,8 @@ categories:
  - Webpack
 ---
 
+<ReadAloud />
+
 ## Webpack核心概念
 
 ### 1. 基础配置结构

@@ -8,6 +8,8 @@ categories:
  - React
 ---
 
+<ReadAloud />
+
 ## Fiber架构深度解析
 
 ### 1. 什么是Fiber架构？

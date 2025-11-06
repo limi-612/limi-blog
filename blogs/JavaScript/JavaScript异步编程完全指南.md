@@ -8,6 +8,8 @@ categories:
  - JavaScript
 ---
 
+<ReadAloud />
+
 ## 异步编程的演进历程
 
 ### 1. 回调函数时代

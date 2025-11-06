@@ -9,6 +9,8 @@ categories:
  - Uniapp
 ---
 
+<ReadAloud />
+
 ## Uniapp基础概念
 
 ### 1. Uniapp框架特点与优势

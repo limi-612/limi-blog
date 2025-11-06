@@ -9,6 +9,8 @@ categories:
  - Axios
 ---
 
+<ReadAloud />
+
 ## Axios基础使用
 
 ### 1. Axios核心特性与基本配置

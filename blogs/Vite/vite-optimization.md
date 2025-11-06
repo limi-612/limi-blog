@@ -9,6 +9,8 @@ categories:
  - Vite
 ---
 
+<ReadAloud />
+
 ## Vite核心原理
 
 ### 1. Vite开发模式的革命性原理

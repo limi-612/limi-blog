@@ -7,6 +7,8 @@ categories:
  - TypeScript
 ---
 
+<ReadAloud />
+
 ## 基础概念
 
 ### 1. TypeScript的优势

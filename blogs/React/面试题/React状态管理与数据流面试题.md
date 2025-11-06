@@ -9,6 +9,8 @@ categories:
  - React
 ---
 
+<ReadAloud />
+
 ## React状态管理核心问题
 
 ### 1. React中有哪些状态管理方案？各自的优缺点是什么？

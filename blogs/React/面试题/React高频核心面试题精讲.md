@@ -8,6 +8,8 @@ categories:
  - React
 ---
 
+<ReadAloud />
+
 ## React基础核心问题
 
 ### 1. React中的key有什么作用？为什么不能用index作为key？

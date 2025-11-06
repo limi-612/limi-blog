@@ -9,6 +9,8 @@ categories:
  - Vue2
 ---
 
+<ReadAloud />
+
 ## 响应式原理
 
 ### 1. Vue2响应式原理详解

@@ -9,6 +9,8 @@ categories:
  - Git
 ---
 
+<ReadAloud />
+
 ## Git基础概念
 
 ### 1. Git工作原理深度解析
@@ -398,11 +400,7 @@ git push origin production
 git merge feature-branch
 
 # 冲突文件内容示例:
-<<<<<<< HEAD
-console.log('main分支的代码');
-=======
 console.log('feature分支的代码');
->>>>>>> feature-branch
 
 # 手动解决冲突后
 git add conflicted-file.js

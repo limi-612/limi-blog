@@ -9,6 +9,8 @@ categories:
  - Vue3
 ---
 
+<ReadAloud />
+
 ## Composition API核心
 
 ### 1. setup函数详解

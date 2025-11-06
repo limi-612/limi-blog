@@ -9,6 +9,8 @@ categories:
  - HTML
 ---
 
+<ReadAloud />
+
 ## HTML5新特性
 
 ### 1. 语义化标签的重要性

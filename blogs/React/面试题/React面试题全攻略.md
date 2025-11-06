@@ -8,6 +8,8 @@ categories:
  - React
 ---
 
+<ReadAloud />
+
 ## 基础概念
 
 ### 1. React是什么？
