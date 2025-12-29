@@ -1,0 +1,1 @@
+import{_ as e,c as t,o as a}from"./app-DNlIjGKH.js";const n={};function o(c,r){return a(),t("div")}const i=e(n,[["render",o]]),l=JSON.parse('{"path":"/tags/weixinxiaochengxu/1.html","title":"","lang":"en-US","frontmatter":{"layout":"Categories"},"headers":[],"git":{},"filePathRelative":null}');export{i as comp,l as data};

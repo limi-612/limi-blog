@@ -1,0 +1,1 @@
+import{_ as e,c as t,o as a}from"./app-DNlIjGKH.js";const o={};function n(r,c){return a(),t("div")}const i=e(o,[["render",n]]),l=JSON.parse('{"path":"/categories/mianshihuizong/1.html","title":"","lang":"en-US","frontmatter":{"layout":"Categories"},"headers":[],"git":{},"filePathRelative":null}');export{i as comp,l as data};
