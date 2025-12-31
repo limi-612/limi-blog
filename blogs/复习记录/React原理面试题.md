@@ -320,23 +320,109 @@ function Toolbar() {
   }
   ```
 
-### 18. Hooks 的使用规则？
+### 18. Hooks 的使用规则？为什么不能放在条件渲染中？
+
+#### 使用规则
 
 - **只在顶层调用**：不要在循环、条件或嵌套函数中调用
 - **只在函数组件中调用**：不要在普通函数中调用
 - **原因**：Hooks 依赖调用顺序，条件调用会破坏顺序
 
+#### 为什么不能放在条件渲染中？
+
+**核心原因：Hooks 依赖调用顺序来维护状态**
+
+React 内部使用**链表结构**来存储 Hooks 的状态。每次组件渲染时，React 会按照 Hooks 的调用顺序来访问和更新对应的状态。
+
+**工作原理**：
+1. 首次渲染时，React 按照 Hooks 的调用顺序创建链表节点
+2. 后续渲染时，React 按照相同的顺序访问链表节点
+3. 如果调用顺序改变，会导致状态错位
+
+**错误示例及问题**：
+
 ```javascript
-// 错误示例
-if (condition) {
-  const [state, setState] = useState(0); // 违反规则
+// ❌ 错误：条件调用会破坏 Hooks 顺序
+function MyComponent({ condition }) {
+  if (condition) {
+    const [name, setName] = useState(''); // 第一次渲染：Hook 1
+    const [age, setAge] = useState(0);     // 第一次渲染：Hook 2
+  }
+  
+  const [count, setCount] = useState(0);  // 第一次渲染：Hook 3
+  
+  // 问题：当 condition 从 true 变为 false 时
+  // 第二次渲染时，React 期望：
+  // Hook 1: name (但实际不存在)
+  // Hook 2: age (但实际不存在)
+  // Hook 3: count
+  // 结果：状态错位，导致 bug！
+}
+```
+
+**具体问题演示**：
+
+```javascript
+// ❌ 错误示例
+function BuggyComponent({ showExtra }) {
+  const [count, setCount] = useState(0);
+  
+  if (showExtra) {
+    const [name, setName] = useState(''); // 条件调用
+  }
+  
+  const [age, setAge] = useState(0);
+  
+  // 当 showExtra 从 true 变为 false 时：
+  // 第一次渲染：count(0) -> name('') -> age(0)
+  // 第二次渲染：count(0) -> age(0) 
+  // React 会认为 age 对应的是 name 的状态，导致数据错乱！
+}
+```
+
+**正确的替代方案**：
+
+```javascript
+// ✅ 正确：始终在顶层调用
+function MyComponent({ condition }) {
+  const [name, setName] = useState('');
+  const [age, setAge] = useState(0);
+  const [count, setCount] = useState(0);
+  
+  // 在条件中使用状态，而不是条件调用 Hook
+  if (condition) {
+    // 使用 name 和 age
+  }
 }
 
-// 正确示例
-const [state, setState] = useState(0);
-if (condition) {
-  // 使用 state
+// ✅ 正确：使用条件渲染组件
+function Parent({ condition }) {
+  return (
+    <>
+      {condition && <ComponentWithHooks />}
+      <OtherComponent />
+    </>
+  );
 }
+
+// ✅ 正确：使用早期返回（但所有 Hooks 必须在返回之前调用）
+function MyComponent({ condition }) {
+  const [name, setName] = useState('');
+  const [age, setAge] = useState(0);
+  
+  if (!condition) {
+    return null; // 可以早期返回，但 Hooks 已调用
+  }
+  
+  return <div>{name}</div>;
+}
+```
+
+**React 如何检测这个问题**：
+
+React 在开发模式下会检查 Hooks 的调用顺序，如果发现不一致会抛出错误：
+```
+React has detected a change in the order of Hooks called by MyComponent.
 ```
 
 ## React 原理面试题
@@ -470,9 +556,647 @@ class ErrorBoundary extends React.Component {
   - 根据优先级调度任务
   - 高优先级任务可以打断低优先级任务
 
+### 27. React.createElement 的实现原理？
+
+- **作用**：创建虚拟 DOM 元素（React 元素）
+- **参数**：
+  - type：元素类型（字符串或组件）
+  - props：属性对象
+  - children：子元素（可变参数）
+
+- **实现原理**：
+```javascript
+function createElement(type, props, ...children) {
+  return {
+    $$typeof: Symbol.for('react.element'),
+    type: type,
+    props: {
+      ...props,
+      children: children.length === 1 
+        ? children[0] 
+        : children
+    },
+    key: props?.key || null,
+    ref: props?.ref || null
+  };
+}
+```
+
+- **关键点**：
+  - `$$typeof` 用于防止 XSS 攻击
+  - 扁平化 children 数组
+  - 处理 key 和 ref 属性
+
+### 28. Fiber 节点的数据结构？
+
+- **Fiber 节点包含的信息**：
+```javascript
+{
+  // 节点类型信息
+  tag: WorkTag,              // 节点类型（函数组件、类组件等）
+  type: any,                 // 组件类型
+  key: string | null,        // key 值
+  
+  // 状态信息
+  stateNode: any,            // 对应的真实 DOM 节点或组件实例
+  memoizedState: any,        // 当前状态
+  memoizedProps: any,        // 当前 props
+  pendingProps: any,         // 待处理的 props
+  
+  // 链表结构
+  return: Fiber | null,      // 父节点
+  child: Fiber | null,        // 第一个子节点
+  sibling: Fiber | null,      // 下一个兄弟节点
+  
+  // 副作用
+  effectTag: SideEffectTag,  // 副作用标记
+  updateQueue: UpdateQueue,  // 更新队列
+  flags: Flags,              // 副作用标志（React 18+）
+  
+  // 调度相关
+  lanes: Lanes,              // 优先级车道
+  childLanes: Lanes,         // 子节点优先级车道
+  
+  // 其他
+  alternate: Fiber | null,   // 双缓冲中的另一个 Fiber
+  index: number              // 在父节点中的索引
+}
+```
+
+- **链表结构**：通过 child、sibling、return 形成树形链表
+
+### 29. React 的双缓冲机制（Double Buffering）？
+
+- **定义**：维护两棵 Fiber 树，一棵是当前显示的（current），一棵是正在构建的（workInProgress）
+
+- **工作原理**：
+  1. **首次渲染**：创建 workInProgress 树，完成后成为 current 树
+  2. **更新时**：
+     - 基于 current 树创建 workInProgress 树
+     - 在 workInProgress 树上进行更新
+     - 完成后交换两棵树
+
+- **优势**：
+  - 可以中断和恢复渲染
+  - 避免渲染过程中的闪烁
+  - 支持并发渲染
+
+- **实现**：
+```javascript
+// 每个 Fiber 节点都有 alternate 属性指向另一棵树
+let currentFiber = root.current;
+let workInProgressFiber = currentFiber.alternate;
+
+if (!workInProgressFiber) {
+  // 创建新的 workInProgress 节点
+  workInProgressFiber = createFiber(
+    currentFiber.tag,
+    currentFiber.type,
+    currentFiber.key
+  );
+  workInProgressFiber.alternate = currentFiber;
+  currentFiber.alternate = workInProgressFiber;
+}
+```
+
+### 30. React 的协调算法（Reconciliation）详细原理？
+
+- **协调过程**：
+  1. **开始工作**：从根节点开始遍历
+  2. **深度优先遍历**：递归处理每个节点
+  3. **对比更新**：比较新旧 Fiber 节点
+  4. **标记副作用**：标记需要更新的节点
+  5. **提交阶段**：应用所有变更
+
+- **对比策略**：
+  - **相同类型**：复用节点，更新 props
+  - **不同类型**：删除旧节点，创建新节点
+  - **列表节点**：通过 key 匹配，移动、添加、删除
+
+- **可中断机制**：
+  - 使用时间切片（Time Slicing）
+  - 每个 Fiber 节点处理完后检查是否有更高优先级任务
+  - 可以暂停当前工作，处理高优先级任务后恢复
+
+### 31. React 的调度器（Scheduler）原理？
+
+- **作用**：管理任务的优先级和调度
+
+- **核心机制**：
+  1. **任务队列**：维护多个优先级的任务队列
+  2. **时间切片**：将工作分成 5ms 的时间片
+  3. **任务调度**：使用 MessageChannel 实现异步调度
+
+- **实现原理**：
+```javascript
+// 简化的调度器实现
+const taskQueue = [];
+let isScheduled = false;
+
+function scheduleCallback(priority, callback) {
+  const task = {
+    priority,
+    callback,
+    startTime: performance.now()
+  };
+  
+  taskQueue.push(task);
+  taskQueue.sort((a, b) => a.priority - b.priority);
+  
+  if (!isScheduled) {
+    isScheduled = true;
+    scheduleWork();
+  }
+}
+
+function scheduleWork() {
+  const channel = new MessageChannel();
+  channel.port2.onmessage = () => {
+    const task = taskQueue.shift();
+    if (task) {
+      task.callback();
+    }
+    if (taskQueue.length > 0) {
+      scheduleWork();
+    } else {
+      isScheduled = false;
+    }
+  };
+  channel.port1.postMessage(null);
+}
+```
+
+- **优先级处理**：
+  - 高优先级任务可以打断低优先级任务
+  - 被打断的任务会被重新调度
+  - 使用 lanes 模型管理优先级
+
+### 32. React 的状态更新机制？
+
+- **更新流程**：
+  1. **触发更新**：调用 setState 或 useState
+  2. **创建更新对象**：包含新的状态值
+  3. **加入更新队列**：将更新加入 Fiber 节点的 updateQueue
+  4. **调度更新**：标记需要更新的 Fiber 节点
+  5. **协调阶段**：处理更新队列，计算新状态
+  6. **提交阶段**：应用更新到 DOM
+
+- **更新队列结构**：
+```javascript
+{
+  baseState: any,        // 基础状态
+  firstUpdate: Update,    // 第一个更新
+  lastUpdate: Update,     // 最后一个更新
+  firstCapturedUpdate: Update,  // 捕获的更新
+  // ...
+}
+```
+
+- **状态计算**：
+  - 遍历更新队列
+  - 按顺序应用每个更新
+  - 支持函数式更新：`setState(prev => prev + 1)`
+
+- **批处理**：
+  - React 18+ 自动批处理所有更新
+  - 在事件处理、Promise、setTimeout 中都会批处理
+  - 使用 `flushSync` 可以强制同步更新
+
+### 33. React 的副作用（Effects）处理机制？
+
+- **副作用类型**：
+  - DOM 更新
+  - 订阅/取消订阅
+  - 定时器
+  - 网络请求
+
+- **处理流程**：
+  1. **标记阶段**：在协调阶段标记有副作用的节点
+  2. **收集阶段**：收集所有副作用到 effectList
+  3. **执行阶段**：在提交阶段按顺序执行
+
+- **Effect 链表**：
+```javascript
+// 每个 Fiber 节点维护一个 effect 链表
+fiber.updateQueue = {
+  lastEffect: Effect,  // 最后一个 effect
+  // effects 形成循环链表
+};
+
+// Effect 结构
+{
+  tag: EffectTag,       // 副作用类型
+  create: Function,     // 创建函数
+  destroy: Function,    // 清理函数
+  deps: Array,          // 依赖数组
+  next: Effect          // 下一个 effect
+}
+```
+
+- **执行时机**：
+  - **BeforeMutation**：DOM 更新前（getSnapshotBeforeUpdate）
+  - **Mutation**：DOM 更新时
+  - **Layout**：DOM 更新后（useLayoutEffect）
+  - **Passive**：浏览器绘制后（useEffect）
+
+### 34. React Hooks 的实现原理（深入）？
+
+- **数据结构**：
+```javascript
+// Hooks 存储在 Fiber 节点的 memoizedState 中
+// 使用链表结构存储
+{
+  memoizedState: any,        // 当前状态值
+  baseState: any,            // 基础状态
+  baseQueue: Update,         // 基础更新队列
+  queue: UpdateQueue,        // 更新队列
+  next: Hook | null          // 下一个 Hook
+}
+```
+
+- **调用机制**：
+  1. **首次渲染**：创建 Hook 链表，初始化状态
+  2. **更新渲染**：按顺序访问 Hook 链表，应用更新
+  3. **依赖顺序**：必须保证每次渲染时 Hook 调用顺序一致
+
+- **useState 实现**：
+```javascript
+function useState(initialState) {
+  const hook = updateWorkInProgressHook();
+  
+  if (!hook.memoizedState) {
+    // 首次渲染，初始化状态
+    hook.memoizedState = typeof initialState === 'function'
+      ? initialState()
+      : initialState;
+  }
+  
+  const dispatch = (action) => {
+    const update = {
+      action,
+      next: null
+    };
+    
+    // 加入更新队列
+    const queue = hook.queue;
+    if (!queue.lastUpdate) {
+      queue.lastUpdate = update;
+    } else {
+      queue.lastUpdate.next = update;
+      queue.lastUpdate = update;
+    }
+    
+    // 调度更新
+    scheduleUpdate();
+  };
+  
+  return [hook.memoizedState, dispatch];
+}
+```
+
+- **useEffect 实现**：
+```javascript
+function useEffect(create, deps) {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  
+  if (hook.memoizedState) {
+    const [prevDestroy, prevDeps] = hook.memoizedState;
+    
+    // 比较依赖
+    if (areHookInputsEqual(nextDeps, prevDeps)) {
+      // 依赖未变化，跳过
+      return;
+    }
+    
+    // 依赖变化，执行清理函数
+    if (prevDestroy) {
+      prevDestroy();
+    }
+  }
+  
+  // 标记需要执行 effect
+  hook.memoizedState = [
+    create(),  // 执行创建函数
+    nextDeps
+  ];
+  
+  // 添加到 effect 链表
+  pushEffect(hookFlags, create, undefined, nextDeps);
+}
+```
+
+### 35. React 的并发模式（Concurrent Mode）原理？
+
+- **定义**：允许 React 中断正在进行的渲染，处理更高优先级的任务
+
+- **核心特性**：
+  1. **可中断渲染**：渲染可以被中断和恢复
+  2. **优先级调度**：根据优先级调度任务
+  3. **时间切片**：将工作分成小的时间片
+
+- **工作流程**：
+  1. **开始渲染**：从根节点开始
+  2. **时间切片**：每 5ms 检查一次
+  3. **中断检查**：如果有更高优先级任务，中断当前工作
+  4. **恢复工作**：高优先级任务完成后恢复
+
+- **优先级模型（Lanes）**：
+```javascript
+// 使用位掩码表示优先级
+const SyncLane = 0b0000000000000000000000000000001;
+const InputContinuousLane = 0b0000000000000000000000000000100;
+const DefaultLane = 0b0000000000000000000000000010000;
+const IdleLane = 0b0100000000000000000000000000000;
+
+// 可以组合多个优先级
+const lanes = DefaultLane | InputContinuousLane;
+```
+
+- **并发特性**：
+  - **useTransition**：标记非紧急更新
+  - **useDeferredValue**：延迟更新值
+  - **Suspense**：支持并发渲染的 Suspense
+
+### 36. React 的 Hydration（水合）原理？
+
+- **定义**：将服务端渲染的 HTML 与客户端 React 应用关联起来
+
+- **流程**：
+  1. **服务端渲染**：生成 HTML 字符串
+  2. **客户端接收**：浏览器接收 HTML
+  3. **React 激活**：使用 `hydrateRoot` 激活
+  4. **对比差异**：对比服务端 HTML 和客户端虚拟 DOM
+  5. **应用差异**：只更新不一致的部分
+
+- **实现原理**：
+```javascript
+function hydrateRoot(container, element) {
+  const root = createRoot(container, {
+    hydrate: true  // 启用 hydration 模式
+  });
+  
+  root.render(element);
+  return root;
+}
+```
+
+- **注意事项**：
+  - HTML 结构必须与服务端完全一致
+  - 属性差异会被修复，但会产生警告
+  - 文本内容差异会导致不匹配错误
+  - 使用 `suppressHydrationWarning` 可以抑制警告
+
+### 37. React Context 的实现原理？
+
+- **数据结构**：
+```javascript
+const context = {
+  $$typeof: REACT_CONTEXT_TYPE,
+  _currentValue: any,        // 当前值
+  _currentValue2: any,      // 并发模式下的值
+  Provider: Component,      // Provider 组件
+  Consumer: Component       // Consumer 组件（已废弃）
+};
+```
+
+- **Provider 实现**：
+```javascript
+function ContextProvider({ value, children }) {
+  const context = this._context;
+  
+  // 更新 context 值
+  context._currentValue = value;
+  
+  // 标记需要更新的消费者
+  propagateContextChange(context);
+  
+  return children;
+}
+```
+
+- **useContext 实现**：
+```javascript
+function useContext(context) {
+  // 从当前 Fiber 节点读取 context 值
+  return readContext(context);
+}
+
+function readContext(context) {
+  // 将当前组件加入 context 的依赖列表
+  const consumer = currentlyRenderingFiber;
+  subscribeToContext(context, consumer);
+  
+  return context._currentValue;
+}
+```
+
+- **更新机制**：
+  - Context 值变化时，所有消费者都会重新渲染
+  - 使用 Object.is 比较值是否变化
+  - 可以通过拆分 Context 优化性能
+
+### 38. React ref 的实现原理？
+
+- **ref 类型**：
+  - **字符串 ref**（已废弃）：`ref="myRef"`
+  - **回调 ref**：`ref={(node) => this.myRef = node}`
+  - **对象 ref**：`ref={this.myRef}`（useRef 创建）
+
+- **处理流程**：
+  1. **协调阶段**：处理 ref 属性
+  2. **提交阶段**：附加或分离 ref
+
+- **实现原理**：
+```javascript
+// useRef 实现
+function useRef(initialValue) {
+  const hook = updateWorkInProgressHook();
+  
+  if (!hook.memoizedState) {
+    hook.memoizedState = {
+      current: initialValue
+    };
+  }
+  
+  return hook.memoizedState;
+}
+
+// ref 附加
+function commitAttachRef(finishedWork) {
+  const ref = finishedWork.ref;
+  if (ref !== null) {
+    const instance = finishedWork.stateNode;
+    
+    if (typeof ref === 'function') {
+      // 回调 ref
+      ref(instance);
+    } else {
+      // 对象 ref
+      ref.current = instance;
+    }
+  }
+}
+```
+
+- **注意事项**：
+  - ref 不会触发重新渲染
+  - 函数组件不能直接使用 ref，需要 forwardRef
+  - 在组件卸载时会自动清理 ref
+
+### 39. React Portal 的实现原理？
+
+- **定义**：将子节点渲染到 DOM 树的不同位置
+
+- **实现原理**：
+```javascript
+function createPortal(children, container) {
+  return {
+    $$typeof: REACT_PORTAL_TYPE,
+    key: null,
+    children: children,
+    containerInfo: container  // 目标容器
+  };
+}
+
+// 渲染 Portal
+function commitPlacement(finishedWork) {
+  const containerInfo = finishedWork.stateNode.containerInfo;
+  const parent = containerInfo;
+  
+  // 将子节点插入到目标容器
+  appendChildToContainer(parent, finishedWork.child);
+}
+```
+
+- **特点**：
+  - Portal 仍然在 React 树中
+  - 事件冒泡会正常工作
+  - Context 可以正常传递
+  - 只是 DOM 位置不同
+
+### 40. React Suspense 的实现原理？
+
+- **工作原理**：
+  1. **抛出 Promise**：组件在渲染时抛出 Promise
+  2. **捕获 Promise**：Suspense 边界捕获 Promise
+  3. **显示 fallback**：显示加载状态
+  4. **Promise 完成**：重新渲染组件
+
+- **实现机制**：
+```javascript
+// 简化的 Suspense 实现
+function SuspenseComponent({ children, fallback }) {
+  try {
+    return children;
+  } catch (promise) {
+    if (promise instanceof Promise) {
+      // 捕获 Promise
+      throw promise;  // 向上抛出，由 Suspense 边界处理
+    }
+    throw promise;
+  }
+}
+
+// 在协调阶段处理
+function beginWork(current, workInProgress) {
+  if (workInProgress.tag === SuspenseComponent) {
+    // 检查是否有待处理的 Promise
+    const nextState = workInProgress.memoizedState;
+    if (nextState !== null) {
+      // 有 Promise，显示 fallback
+      return fallback;
+    }
+  }
+}
+```
+
+- **并发模式下的 Suspense**：
+  - 支持中断和恢复
+  - 可以同时处理多个 Suspense 边界
+  - 支持嵌套 Suspense
+
+### 41. React 的渲染优先级和中断恢复机制？
+
+- **优先级模型**：
+  - 使用 Lanes（车道）模型表示优先级
+  - 每个更新都有对应的 lane
+  - 可以组合多个 lanes
+
+- **中断机制**：
+```javascript
+function workLoopConcurrent() {
+  while (workInProgress !== null && !shouldYield()) {
+    performUnitOfWork(workInProgress);
+  }
+}
+
+function shouldYield() {
+  // 检查是否有更高优先级的任务
+  if (needsPaint) {
+    return true;  // 需要绘制，让出控制权
+  }
+  
+  // 检查时间切片
+  if (getCurrentTime() - startTime < frameInterval) {
+    return false;  // 还有时间，继续工作
+  }
+  
+  return true;  // 时间片用完，让出控制权
+}
+```
+
+- **恢复机制**：
+  - 保存当前工作进度（Fiber 节点）
+  - 处理高优先级任务
+  - 从保存的位置恢复工作
+
+- **优先级提升**：
+  - 用户交互（点击、输入）会提升优先级
+  - 使用 `startTransition` 可以降低优先级
+  - 过期任务会被强制同步执行
+
+### 42. React 的 Server Components 原理？
+
+- **定义**：在服务端运行的 React 组件，不发送 JavaScript 到客户端
+
+- **特点**：
+  - 只在服务端运行
+  - 可以直接访问数据库和文件系统
+  - 不包含客户端交互逻辑
+  - 减少客户端 bundle 大小
+
+- **工作原理**：
+  1. **服务端渲染**：Server Component 在服务端执行
+  2. **序列化**：将结果序列化为特殊格式
+  3. **传输**：通过流式传输发送到客户端
+  4. **客户端渲染**：Client Component 在客户端渲染
+
+- **组件边界**：
+```javascript
+// Server Component（默认）
+async function ServerComponent() {
+  const data = await fetchData();  // 可以直接访问数据库
+  return <div>{data}</div>;
+}
+
+// Client Component（需要 'use client' 指令）
+'use client';
+function ClientComponent() {
+  const [state, setState] = useState(0);
+  return <button onClick={() => setState(state + 1)}>{state}</button>;
+}
+```
+
+- **限制**：
+  - Server Component 不能使用 Hooks
+  - 不能使用浏览器 API
+  - 不能使用事件处理
+  - Props 必须可序列化
+
 ## React 性能优化面试题
 
-### 27. React 性能优化的方法？
+### 43. React 性能优化的方法？
 
 - **使用 React.memo**：缓存组件，避免不必要的重新渲染
 - **使用 useMemo/useCallback**：缓存计算结果和函数引用
@@ -482,7 +1206,7 @@ class ErrorBoundary extends React.Component {
 - **使用 key 优化列表**：使用稳定、唯一的 key
 - **避免在 render 中进行昂贵计算**：使用 useMemo
 
-### 28. React.memo 的使用？
+### 44. React.memo 的使用？
 
 - **作用**：缓存组件，只有 props 变化时才重新渲染
 - **使用**：
@@ -497,7 +1221,7 @@ class ErrorBoundary extends React.Component {
 
 - **注意**：只进行浅比较，复杂对象需要自定义比较函数
 
-### 29. React.lazy 和 Suspense 的使用？
+### 45. React.lazy 和 Suspense 的使用？
 
 - **作用**：实现代码分割，按需加载组件
 - **使用**：
@@ -515,7 +1239,243 @@ class ErrorBoundary extends React.Component {
 
 - **优势**：减少初始打包体积，提升首屏加载速度
 
-### 30. 如何避免不必要的重新渲染？
+### 45.5. React Suspense 和 Vue 3 Suspense 的区别？
+
+#### React Suspense
+
+**特点**：
+- **声明式**：通过 `<Suspense>` 组件包裹，自动处理加载状态
+- **统一处理**：可以同时处理多个异步组件
+- **并发特性**：React 18+ 支持并发渲染，可以中断和恢复
+- **数据获取**：支持异步数据获取（配合 React Server Components）
+
+**使用方式**：
+```javascript
+// 代码分割
+const LazyComponent = React.lazy(() => import('./LazyComponent'));
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LazyComponent />
+      <AnotherLazyComponent />
+    </Suspense>
+  );
+}
+
+// 数据获取（React 18+）
+function DataComponent() {
+  const data = use(fetchData()); // 抛出 Promise
+  return <div>{data}</div>;
+}
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading data...</div>}>
+      <DataComponent />
+    </Suspense>
+  );
+}
+```
+
+**优势**：
+- 统一的加载状态处理
+- 支持嵌套 Suspense
+- 更好的用户体验（并发渲染）
+- 可以处理数据获取和代码分割
+
+#### Vue 3 Suspense
+
+**特点**：
+- **声明式**：通过 `<Suspense>` 组件包裹，类似 React
+- **异步 setup**：主要处理异步组件的 `setup()` 函数
+- **事件支持**：提供 `@resolve`、`@pending`、`@fallback` 事件
+- **实验性**：Vue 3 中 Suspense 是实验性特性
+
+**使用方式**：
+```vue
+<template>
+  <Suspense>
+    <!-- 异步组件 -->
+    <template #default>
+      <AsyncComponent />
+    </template>
+    
+    <!-- 加载状态 -->
+    <template #fallback>
+      <div>Loading...</div>
+    </template>
+  </Suspense>
+</template>
+
+<script>
+// AsyncComponent.vue
+export default {
+  async setup() {
+    const data = await fetchData();
+    return { data };
+  }
+};
+</script>
+
+<!-- 带事件监听 -->
+<template>
+  <Suspense 
+    @resolve="onResolve"
+    @pending="onPending"
+    @fallback="onFallback"
+  >
+    <template #default>
+      <AsyncComponent />
+    </template>
+    <template #fallback>
+      <div>Loading...</div>
+    </template>
+  </Suspense>
+</template>
+```
+
+**优势**：
+- 语法简单直观
+- 支持事件监听
+- 与 Vue 3 Composition API 完美结合
+- 可以处理异步 setup 函数
+
+#### 核心区别对比
+
+| 特性 | React Suspense | Vue 3 Suspense |
+|------|---------------|----------------|
+| **状态** | ✅ 稳定特性 | ⚠️ 实验性特性 |
+| **主要用途** | 代码分割、数据获取 | 异步 setup 函数 |
+| **并发渲染** | ✅ React 18+ 支持 | ❌ 不支持 |
+| **嵌套支持** | ✅ 支持嵌套 Suspense | ✅ 支持嵌套 |
+| **数据获取** | ✅ 支持（React 18+） | ⚠️ 仅支持异步 setup |
+| **事件监听** | ❌ 不支持 | ✅ 支持 @resolve/@pending |
+| **错误处理** | 需要 Error Boundary | 需要错误处理机制 |
+| **API 设计** | 仅 fallback prop | 插槽 + 事件 |
+| **使用场景** | 代码分割、数据获取、SSR | 异步组件加载 |
+
+#### 详细对比
+
+**1. 触发机制**
+
+**React**：
+- 组件抛出 Promise（通过 `React.lazy()` 或 `use()`）
+- Suspense 捕获 Promise，显示 fallback
+- Promise 完成后渲染组件
+
+**Vue 3**：
+- 组件的 `setup()` 函数返回 Promise
+- Suspense 检测到异步 setup，显示 fallback
+- Promise 完成后渲染组件
+
+**2. 数据获取支持**
+
+**React**（React 18+）：
+```javascript
+// 支持在组件中直接获取数据
+function UserProfile({ userId }) {
+  const user = use(fetchUser(userId)); // 抛出 Promise
+  return <div>{user.name}</div>;
+}
+
+<Suspense fallback={<Loading />}>
+  <UserProfile userId={1} />
+</Suspense>
+```
+
+**Vue 3**：
+```vue
+<!-- 需要在 setup 中处理 -->
+<script>
+export default {
+  async setup() {
+    const user = await fetchUser(userId);
+    return { user };
+  }
+};
+</script>
+```
+
+**3. 嵌套支持**
+
+**React**：
+```javascript
+<Suspense fallback={<OuterLoading />}>
+  <OuterComponent>
+    <Suspense fallback={<InnerLoading />}>
+      <InnerComponent />
+    </Suspense>
+  </OuterComponent>
+</Suspense>
+```
+
+**Vue 3**：
+```vue
+<Suspense>
+  <template #default>
+    <OuterComponent>
+      <Suspense>
+        <template #default>
+          <InnerComponent />
+        </template>
+        <template #fallback>
+          <InnerLoading />
+        </template>
+      </Suspense>
+    </OuterComponent>
+  </template>
+  <template #fallback>
+    <OuterLoading />
+  </template>
+</Suspense>
+```
+
+**4. 错误处理**
+
+**React**：
+```javascript
+<ErrorBoundary>
+  <Suspense fallback={<Loading />}>
+    <AsyncComponent />
+  </Suspense>
+</ErrorBoundary>
+```
+
+**Vue 3**：
+```vue
+<!-- 需要手动处理错误 -->
+<Suspense>
+  <template #default>
+    <AsyncComponent v-if="!error" />
+    <ErrorComponent v-else :error="error" />
+  </template>
+</Suspense>
+```
+
+#### 实际应用场景
+
+**React Suspense 适合**：
+- 代码分割和懒加载
+- 异步数据获取（React 18+）
+- SSR 数据获取
+- 需要并发渲染的场景
+- 需要嵌套加载状态
+
+**Vue 3 Suspense 适合**：
+- 异步组件的 setup 函数
+- 组件初始化时需要异步数据
+- 简单的代码分割场景
+- 需要事件监听的场景
+
+#### 总结
+
+- **React Suspense**：更成熟稳定，功能更强大，支持并发渲染和数据获取，但配置相对复杂
+- **Vue 3 Suspense**：更简单直观，与 Composition API 结合好，但仍是实验性特性，功能相对有限
+
+两者都提供了声明式的异步组件加载方案，但 React Suspense 在 React 18+ 中提供了更强大的并发渲染能力，而 Vue 3 Suspense 更注重简单性和与 Vue 生态的集成。
+
+### 46. 如何避免不必要的重新渲染？
 
 - **使用 React.memo**：缓存组件
 - **使用 useMemo/useCallback**：缓存值和函数
@@ -533,7 +1493,7 @@ class ErrorBoundary extends React.Component {
 
 ## React 生态面试题
 
-### 31. React Router 的原理？
+### 47. React Router 的原理？
 
 - **Hash 模式**：使用 `#` 后面的路径，通过 `hashchange` 事件监听
 - **History 模式**：使用 HTML5 History API（pushState、replaceState）
@@ -543,7 +1503,7 @@ class ErrorBoundary extends React.Component {
   - Link：导航组件
   - useNavigate/useParams：Hooks API
 
-### 32. Redux 的工作原理？
+### 48. Redux 的工作原理？
 
 - **三大原则**：
   1. 单一数据源：整个应用的状态存储在单一 store
@@ -557,7 +1517,7 @@ class ErrorBoundary extends React.Component {
   4. Store 更新状态
   5. 组件订阅 store，自动更新
 
-### 33. Redux 和 MobX 的区别？
+### 49. Redux 和 MobX 的区别？
 
 - **Redux**：
   - 函数式编程
@@ -573,7 +1533,7 @@ class ErrorBoundary extends React.Component {
   - 代码更简洁
   - 适合中小型应用
 
-### 34. React 和 Vue 的区别？
+### 50. React 和 Vue 的区别？
 
 - **模板语法**：
   - React：JSX（JavaScript 扩展）
@@ -595,7 +1555,7 @@ class ErrorBoundary extends React.Component {
   - React：虚拟 DOM + Fiber
   - Vue：虚拟 DOM + 响应式系统
 
-### 35. SSR（服务端渲染）的原理？
+### 51. SSR（服务端渲染）的原理？
 
 - **定义**：在服务器端渲染 React 组件，生成 HTML 字符串
 - **优势**：
@@ -607,7 +1567,7 @@ class ErrorBoundary extends React.Component {
   - 客户端使用 ReactDOM.hydrate() 激活
 - **框架**：Next.js、Remix 等
 
-### 36. React 18 的新特性？
+### 52. React 18 的新特性？
 
 - **并发渲染**：支持并发特性，提升用户体验
 - **自动批处理**：自动批处理更多场景的状态更新
@@ -619,7 +1579,7 @@ class ErrorBoundary extends React.Component {
   - useSyncExternalStore：订阅外部 store
   - useInsertionEffect：CSS-in-JS 库使用
 
-### 37. useTransition 和 useDeferredValue 的区别？
+### 53. useTransition 和 useDeferredValue 的区别？
 
 - **useTransition**：
   - 标记非紧急的状态更新
@@ -643,7 +1603,7 @@ startTransition(() => {
 const deferredValue = useDeferredValue(value);
 ```
 
-### 38. React 的 Portal 是什么？
+### 54. React 的 Portal 是什么？
 
 - **定义**：将子节点渲染到 DOM 树的不同位置
 - **使用场景**：模态框、工具提示、弹出层等
@@ -661,7 +1621,7 @@ const deferredValue = useDeferredValue(value);
 
 - **优势**：可以渲染到任意 DOM 节点，不受父组件样式影响
 
-### 39. React 的 Context API 使用注意事项？
+### 55. React 的 Context API 使用注意事项？
 
 - **性能问题**：Context 值变化会导致所有消费组件重新渲染
 - **解决方案**：
@@ -672,7 +1632,7 @@ const deferredValue = useDeferredValue(value);
   - 只在需要跨层级传递数据时使用
   - 避免在 Context 中存储频繁变化的数据
 
-### 40. React 的严格模式（StrictMode）？
+### 56. React 的严格模式（StrictMode）？
 
 - **作用**：帮助发现潜在问题
 - **检查项**：
@@ -690,7 +1650,7 @@ const deferredValue = useDeferredValue(value);
 
 ## React 场景面试题
 
-### 41. 场景：如何优化一个包含 10000 条数据的列表渲染？
+### 57. 场景：如何优化一个包含 10000 条数据的列表渲染？
 
 **问题分析**：
 - 直接渲染会导致页面卡顿
@@ -746,7 +1706,7 @@ const deferredValue = useDeferredValue(value);
    }, [items, startIndex, endIndex]);
    ```
 
-### 42. 场景：如何实现一个防抖搜索功能？
+### 58. 场景：如何实现一个防抖搜索功能？
 
 **需求**：用户输入时，延迟 500ms 后执行搜索，避免频繁请求
 
@@ -827,7 +1787,7 @@ function SearchInput() {
 }
 ```
 
-### 43. 场景：如何实现一个无限滚动列表？
+### 59. 场景：如何实现一个无限滚动列表？
 
 **需求**：滚动到底部时自动加载更多数据
 
@@ -878,7 +1838,7 @@ function InfiniteScrollList() {
 }
 ```
 
-### 44. 场景：父子组件通信，子组件如何向父组件传递数据？
+### 60. 场景：父子组件通信，子组件如何向父组件传递数据？
 
 **解决方案**：
 
@@ -928,7 +1888,7 @@ function InfiniteScrollList() {
    }
    ```
 
-### 45. 场景：如何实现一个可复用的表单组件？
+### 61. 场景：如何实现一个可复用的表单组件？
 
 **需求**：支持多种输入类型，统一验证和提交
 
@@ -1009,7 +1969,7 @@ const fields = [
 ];
 ```
 
-### 46. 场景：如何实现一个拖拽排序的列表？
+### 62. 场景：如何实现一个拖拽排序的列表？
 
 **解决方案**：
 
@@ -1065,7 +2025,7 @@ function DraggableList({ items: initialItems }) {
 }
 ```
 
-### 47. 场景：如何实现一个图片懒加载组件？
+### 63. 场景：如何实现一个图片懒加载组件？
 
 **解决方案**：
 
@@ -1116,7 +2076,7 @@ function LazyImage({ src, alt, placeholder }) {
 }
 ```
 
-### 48. 场景：如何实现一个全局加载状态管理？
+### 64. 场景：如何实现一个全局加载状态管理？
 
 **需求**：多个组件需要共享加载状态
 
@@ -1190,7 +2150,7 @@ function LazyImage({ src, alt, placeholder }) {
    }
    ```
 
-### 49. 场景：如何优化一个频繁更新的组件？
+### 65. 场景：如何优化一个频繁更新的组件？
 
 **问题**：父组件频繁更新导致子组件不必要的重新渲染
 
@@ -1247,7 +2207,7 @@ function LazyImage({ src, alt, placeholder }) {
    }
    ```
 
-### 50. 场景：如何实现一个自定义的 useFetch Hook？
+### 66. 场景：如何实现一个自定义的 useFetch Hook？
 
 **需求**：封装数据获取逻辑，支持加载状态、错误处理、缓存
 
@@ -1331,7 +2291,7 @@ function MyComponent() {
 }
 ```
 
-### 51. 场景：如何实现一个多步骤表单（Wizard）？
+### 67. 场景：如何实现一个多步骤表单（Wizard）？
 
 **解决方案**：
 
@@ -1409,7 +2369,7 @@ function Wizard({ steps, onComplete }) {
 }
 ```
 
-### 52. 场景：如何实现一个可撤销/重做的功能？
+### 68. 场景：如何实现一个可撤销/重做的功能？
 
 **解决方案**：
 
@@ -1469,7 +2429,7 @@ function Editor() {
 }
 ```
 
-### 53. 场景：如何处理组件卸载后的异步操作？
+### 69. 场景：如何处理组件卸载后的异步操作？
 
 **问题**：组件卸载后，异步操作完成时更新状态会导致内存泄漏
 
@@ -1515,7 +2475,7 @@ function MyComponent() {
 }
 ```
 
-### 54. 场景：如何实现一个倒计时组件？
+### 70. 场景：如何实现一个倒计时组件？
 
 **解决方案**：
 
@@ -1574,7 +2534,7 @@ function Countdown() {
 }
 ```
 
-### 55. 场景：如何实现一个文件上传组件，支持进度显示？
+### 71. 场景：如何实现一个文件上传组件，支持进度显示？
 
 **解决方案**：
 
